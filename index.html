@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nifty 50 Options Trading Simulator</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: #ffffff;
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            background-color: #1e1e1e;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
+            width: 100%;
+            max-width: 800px;
+            text-align: center;
+        }
+
+        .container h1 {
+            margin-bottom: 30px;
+            font-size: 2.5rem;
+            color: #4caf50;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 12px;
+            border-radius: 5px;
+            border: 1px solid #555;
+            background-color: #333;
+            color: #fff;
+            font-size: 1rem;
+            transition: background-color 0.3s ease;
+        }
+
+        .input-group input:hover, .input-group input:focus {
+            background-color: #444;
+            outline: none;
+        }
+
+        .button {
+            background-color: #4caf50;
+            border: none;
+            padding: 15px 35px;
+            border-radius: 5px;
+            color: #fff;
+            cursor: pointer;
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-top: 20px;
+            transition: background-color 0.3s ease, transform 0.3s ease;
+        }
+
+        .button:hover {
+            background-color: #45a049;
+            transform: scale(1.05);
+        }
+
+        .result-container {
+            margin-top: 30px;
+            text-align: left;
+            background-color: #1f1f1f;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .summary {
+            margin-top: 20px;
+            font-size: 1.1rem;
+        }
+
+        .summary ul {
+            padding-left: 20px;
+        }
+
+        .chart-container {
+            margin-top: 40px;
+        }
+
+        .chart {
+            width: 100%;
+            height: 400px;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+            
+            .input-group input {
+                padding: 10px;
+            }
+            
+            .button {
+                padding: 12px 30px;
+            }
+
+            .chart-container {
+                margin-top: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Nifty 50 Options Trading Simulator</h1>
+        <div class="input-group">
+            <label for="current-price">Current Price</label>
+            <input type="number" id="current-price" placeholder="Enter current price">
+        </div>
+        <div class="input-group">
+            <label for="strike-price">Strike Price</label>
+            <input type="number" id="strike-price" placeholder="Enter strike price">
+        </div>
+        <div class="input-group">
+            <label for="expiry-date">Expiry Date</label>
+            <input type="date" id="expiry-date">
+        </div>
+        <div class="input-group">
+            <label for="risk-free-rate">Risk-Free Rate (%)</label>
+            <input type="number" id="risk-free-rate" placeholder="Enter risk-free rate">
+        </div>
+        <button class="button" onclick="runSimulation()">Run Simulation</button>
+        <div class="result-container" id="result-container">
+            <!-- Simulation results will be added here -->
+        </div>
+        <div class="chart-container">
+            <canvas id="simulationChart" class="chart"></canvas>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        function calculateVolatility(prices) {
+            const logReturns = prices.slice(1).map((price, i) => Math.log(price / prices[i]));
+            const meanLogReturn = logReturns.reduce((acc, ret) => acc + ret, 0) / logReturns.length;
+            const squaredDiffs = logReturns.map(ret => (ret - meanLogReturn) ** 2);
+            const variance = squaredDiffs.reduce((acc, diff) => acc + diff, 0) / squaredDiffs.length;
+            return Math.sqrt(variance) * Math.sqrt(252); // Annualize the volatility
+        }
+
+        function generateDummyHistoricalData(currentPrice) {
+            const historicalPrices = [];
+            let price = currentPrice;
+            for (let i = 0; i < 252; i++) {
+                const change = (Math.random() - 0.5) * 2; // Random change between -1 and 1
+                price *= (1 + change / 100);
+                historicalPrices.push(price);
+            }
+            return historicalPrices.reverse();
+        }
+
+        function runSimulation() {
+            const currentPrice = parseFloat(document.getElementById('current-price').value);
+            const strikePrice = parseFloat(document.getElementById('strike-price').value);
+            const expiryDate = new Date(document.getElementById('expiry-date').value);
+            const riskFreeRate = parseFloat(document.getElementById('risk-free-rate').value) / 100;
+
+            if (isNaN(currentPrice) || isNaN(strikePrice) || isNaN(riskFreeRate) || !expiryDate) {
+                alert("Please enter valid inputs.");
+                return;
+            }
+
+            const historicalPrices = generateDummyHistoricalData(currentPrice);
+            const volatility = calculateVolatility(historicalPrices);
+
+            const today = new Date();
+            const timeToExpiry = (expiryDate - today) / (1000 * 60 * 60 * 24 * 365); // Time to expiry in years
+
+            const simulations = 500;
+            const callResults = [];
+            const putResults = [];
+
+            for (let i = 0; i < simulations; i++) {
+                let simulatedPrice = currentPrice;
+                for (let t = 0; t < timeToExpiry * 252; t++) { // 252 trading days in a year
+                    const randomShock = Math.random();
+                    const priceChange = (riskFreeRate - 0.5 * volatility * volatility) * (1 / 252) + volatility * Math.sqrt(1 / 252) * Math.sqrt(-2 * Math.log(randomShock)) * Math.sin(2 * Math.PI * randomShock);
+                    simulatedPrice *= Math.exp(priceChange);
+                }
+                callResults.push(simulatedPrice);
+                putResults.push(simulatedPrice);
+            }
+
+            const callInTheMoney = callResults.filter(price => price >= strikePrice).length;
+            const putInTheMoney = putResults.filter(price => price <= strikePrice).length;
+            const callProbability = (callInTheMoney / simulations) * 100;
+            const putProbability = (putInTheMoney / simulations) * 100;
+
+            const bestOption = callProbability > putProbability ? 'Call' : 'Put';
+
+            const futurePrices = Array.from(new Set(callResults)).sort((a, b) => a - b).slice(0, 5);
+            const recommendedOptions = futurePrices.map(price => {
+                return {
+                    strike: price.toFixed(2),
+                    probability: ((callResults.filter(p => p >= price).length / simulations) * 100).toFixed(2)
+                };
+            });
+
+            const resultContainer = document.getElementById('result-container');
+            resultContainer.innerHTML = `
+                <div class="summary">
+                    <p>Current Price: ${currentPrice.toFixed(2)}</p>
+                    <p>Volatility: ${(volatility * 100).toFixed(2)}%</p>
+                    <p>Number of Simulations: ${simulations}</p>
+                    <p>Probability of Call Option being In the Money: ${callProbability.toFixed(2)}%</p>
+                    <p>Probability of Put Option being In the Money: ${putProbability.toFixed(2)}%</p>
+                    <p>Best Option to Trade: ${bestOption}</p>
+                    <p>Top 5 Recommended Options:</p>
+                    <ul>
+                        ${recommendedOptions.map(option => `
+                            <li>Strike Price: ${option.strike}, Probability: ${option.probability}%</li>
+                        `).join('')}
+                    </ul>
+                </div>
+            `;
+
+            // Draw chart
+            const ctx = document.getElementById('simulationChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({ length: simulations }, (_, i) => i + 1),
+                    datasets: [{
+                        label: 'Simulated Prices',
+                        data: callResults,
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1,
+                        fill: false,
+                    }]
+                },
+                options: {
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Simulation #'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Price'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
